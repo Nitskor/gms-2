@@ -60,9 +60,9 @@ export async function POST(request: NextRequest) {
         endTime: shift.endTime,
         patrollingRequired: shift.patrollingRequired || false,
         requiredStaff: {
-          SO_ASO: shift.roles?.filter((r: any) => r.type === 'SO_ASO').length || 0,
-          SUPERVISOR: shift.roles?.filter((r: any) => r.type === 'SUPERVISOR').length || 0,
-          SECURITY_GUARD: shift.roles?.filter((r: any) => r.type === 'SECURITY_GUARD').length || 0
+          SO_ASO: shift.soAsoCount || 0,
+          SUPERVISOR: shift.supervisorCount || 0,
+          SECURITY_GUARD: shift.securityGuardCount || 0
         }
       })) || []
     })) || [];

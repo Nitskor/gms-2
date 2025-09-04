@@ -46,14 +46,14 @@ export async function POST(request: NextRequest) {
     // Create assignment document
     const assignment = {
       assignmentId,
-      employeeId: body.employeeId,
+      employeeId: body.employeeId || '', // Allow empty employeeId for pending assignments
       clientCode: body.clientCode,
       siteId: body.siteId,
       shiftId: body.shiftId,
       designation: body.designation,
       startDate: new Date(body.startDate),
       endDate: body.endDate ? new Date(body.endDate) : null,
-      status: 'active',
+      status: body.status || 'active', // Use status from request or default to active
       createdAt: new Date(),
       updatedAt: new Date()
     };

@@ -42,12 +42,9 @@ export default function CreateClientPage() {
         startTime: "06:00",
         endTime: "18:00",
         patrollingRequired: false,
-        roles: [
-          { id: 1, name: "", type: "SO_ASO", employeeId: "" },
-          { id: 2, name: "", type: "SUPERVISOR", employeeId: "" },
-          { id: 3, name: "", type: "SECURITY_GUARD", employeeId: "" },
-          { id: 4, name: "", type: "SECURITY_GUARD", employeeId: "" }
-        ]
+        soAsoCount: 1,
+        supervisorCount: 1,
+        securityGuardCount: 2
       },
       {
         id: 2,
@@ -55,13 +52,9 @@ export default function CreateClientPage() {
         startTime: "18:00",
         endTime: "06:00",
         patrollingRequired: true,
-        roles: [
-          { id: 5, name: "", type: "SO_ASO", employeeId: "" },
-          { id: 6, name: "", type: "SUPERVISOR", employeeId: "" },
-          { id: 7, name: "", type: "SECURITY_GUARD", employeeId: "" },
-          { id: 8, name: "", type: "SECURITY_GUARD", employeeId: "" },
-          { id: 9, name: "", type: "SECURITY_GUARD", employeeId: "" }
-        ]
+        soAsoCount: 1,
+        supervisorCount: 1,
+        securityGuardCount: 3
       }
     ]
   }]);
@@ -156,12 +149,9 @@ export default function CreateClientPage() {
           startTime: "06:00",
           endTime: "18:00",
           patrollingRequired: false,
-          roles: [
-            { id: 1, name: "", type: "SO_ASO", employeeId: "" },
-            { id: 2, name: "", type: "SUPERVISOR", employeeId: "" },
-            { id: 3, name: "", type: "SECURITY_GUARD", employeeId: "" },
-            { id: 4, name: "", type: "SECURITY_GUARD", employeeId: "" }
-          ]
+          soAsoCount: 1,
+          supervisorCount: 1,
+          securityGuardCount: 2
         },
         {
           id: 2,
@@ -169,13 +159,9 @@ export default function CreateClientPage() {
           startTime: "18:00",
           endTime: "06:00",
           patrollingRequired: true,
-          roles: [
-            { id: 5, name: "", type: "SO_ASO", employeeId: "" },
-            { id: 6, name: "", type: "SUPERVISOR", employeeId: "" },
-            { id: 7, name: "", type: "SECURITY_GUARD", employeeId: "" },
-            { id: 8, name: "", type: "SECURITY_GUARD", employeeId: "" },
-            { id: 9, name: "", type: "SECURITY_GUARD", employeeId: "" }
-          ]
+          soAsoCount: 1,
+          supervisorCount: 1,
+          securityGuardCount: 3
         }
       ]
     }]);
@@ -205,74 +191,12 @@ export default function CreateClientPage() {
     }));
   };
 
-  const addRole = (siteId: number, shiftId: number, roleType: string) => {
-    setPostSites(postSites.map(site => {
-      if (site.id === siteId) {
-        return {
-          ...site,
-          shifts: site.shifts.map(shift => {
-            if (shift.id === shiftId) {
-              const newRoleId = Math.max(...shift.roles.map(role => role.id)) + 1;
-              return {
-                ...shift,
-                roles: [...shift.roles, { id: newRoleId, name: "", type: roleType, employeeId: "" }]
-              };
-            }
-            return shift;
-          })
-        };
-      }
-      return site;
-    }));
-  };
-
-  const removeRole = (siteId: number, shiftId: number, roleId: number) => {
-    setPostSites(postSites.map(site => {
-      if (site.id === siteId) {
-        return {
-          ...site,
-          shifts: site.shifts.map(shift => {
-            if (shift.id === shiftId) {
-              return {
-                ...shift,
-                roles: shift.roles.filter(role => role.id !== roleId)
-              };
-            }
-            return shift;
-          })
-        };
-      }
-      return site;
-    }));
-  };
-
-  const updateRole = (siteId: number, shiftId: number, roleId: number, employeeId: string) => {
-    setPostSites(postSites.map(site => {
-      if (site.id === siteId) {
-        return {
-          ...site,
-          shifts: site.shifts.map(shift => {
-            if (shift.id === shiftId) {
-              return {
-                ...shift,
-                roles: shift.roles.map(role => 
-                  role.id === roleId ? { ...role, employeeId } : role
-                )
-              };
-            }
-            return shift;
-          })
-        };
-      }
-      return site;
-    }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      // Step 1: Create Client
+      // Create Client with staff requirements
       console.log('Creating client...');
       const clientData = {
         companyName,
@@ -305,35 +229,71 @@ export default function CreateClientPage() {
       const clientCode = clientResult.clientCode;
       console.log('Client created with code:', clientCode);
 
-      // Step 2: Create Assignments for selected employees
-      console.log('Creating assignments...');
+      // Step 2: Create assignments based on staff requirements
+      console.log('Creating assignments based on staff requirements...');
       const assignmentPromises = [];
 
       for (const site of postSites) {
-        for (const shift of site.shifts) {
-          for (const role of shift.roles) {
-            if (role.employeeId) {
-              // Find the employee to get their employeeId
-              const employee = employees.find(emp => emp._id === role.employeeId);
-              if (employee) {
-                const assignmentData = {
-                  employeeId: employee.employeeId,
-                  clientCode: clientCode,
-                  siteId: site.name,
-                  shiftId: shift.shiftName,
-                  designation: role.type,
-                  startDate: new Date().toISOString().split('T')[0], // Today's date
-                  endDate: null
-                };
+        if (site.name) { // Only create assignments for sites with names
+          for (const shift of site.shifts) {
+            // Create SO/ASO assignments
+            for (let i = 0; i < (shift.soAsoCount || 0); i++) {
+              assignmentPromises.push(
+                fetch('/api/assignments', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    employeeId: '', // Will be assigned later
+                    clientCode: clientCode,
+                    siteId: site.name,
+                    shiftId: shift.shiftName,
+                    designation: 'SO_ASO',
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: null,
+                    status: 'pending' // Pending until employee is assigned
+                  }),
+                })
+              );
+            }
 
-                assignmentPromises.push(
-                  fetch('/api/assignments', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(assignmentData),
-                  })
-                );
-              }
+            // Create Supervisor assignments
+            for (let i = 0; i < (shift.supervisorCount || 0); i++) {
+              assignmentPromises.push(
+                fetch('/api/assignments', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    employeeId: '', // Will be assigned later
+                    clientCode: clientCode,
+                    siteId: site.name,
+                    shiftId: shift.shiftName,
+                    designation: 'SUPERVISOR',
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: null,
+                    status: 'pending' // Pending until employee is assigned
+                  }),
+                })
+              );
+            }
+
+            // Create Security Guard assignments
+            for (let i = 0; i < (shift.securityGuardCount || 0); i++) {
+              assignmentPromises.push(
+                fetch('/api/assignments', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    employeeId: '', // Will be assigned later
+                    clientCode: clientCode,
+                    siteId: site.name,
+                    shiftId: shift.shiftName,
+                    designation: 'SECURITY_GUARD',
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: null,
+                    status: 'pending' // Pending until employee is assigned
+                  }),
+                })
+              );
             }
           }
         }
@@ -342,12 +302,17 @@ export default function CreateClientPage() {
       // Wait for all assignments to be created
       await Promise.all(assignmentPromises);
 
-      alert('Client and assignments created successfully!');
-      // Reset form or redirect
+      alert(`Client created successfully with code: ${clientCode}! ${assignmentPromises.length} assignment slots have been created. You can now assign staff in the Assignments page.`);
+      
+      // Keep form data for creating another client - only clear the site names
+      setPostSites(postSites.map(site => ({
+        ...site,
+        name: "" // Only clear site names, keep shift requirements
+      })));
       
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert(`Error: ${error instanceof Error ? error.message : 'Failed to create data'}`);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to create client'}`);
     }
   };
 
@@ -619,127 +584,76 @@ export default function CreateClientPage() {
                           </label>
                         </div>
 
-                        {/* Employee Assignments for this shift */}
+                        {/* Staff Requirements for this shift */}
                         <div className="space-y-4">
-                          <h6 className="text-sm font-medium text-gray-900">Employee Assignments for {shift.shiftName}</h6>
+                          <h6 className="text-sm font-medium text-gray-900">Staff Requirements for {shift.shiftName}</h6>
                           <div className="space-y-3">
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-700 w-32 mt-2">SO / ASO:</span>
-                              <div className="flex-1 ml-4">
-                                <div className="flex flex-wrap gap-2 items-center">
-                                  {shift.roles.filter(role => role.type === 'SO_ASO').map((role) => (
-                                    <div key={role.id} className="flex items-center gap-1">
-                                      <select
-                                        value={role.employeeId}
-                                        onChange={(e) => updateRole(site.id, shift.id, role.id, e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 w-48"
-                                      >
-                                        <option value="">Select SO/ASO</option>
-                                        {getEmployeesByDesignation('SO/ASO').map((emp) => (
-                                          <option key={emp._id} value={emp._id}>
-                                            {emp.employeeId} - {emp.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      {shift.roles.filter(r => r.type === 'SO_ASO').length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeRole(site.id, shift.id, role.id)}
-                                          className="p-1 text-red-600 hover:text-red-800 border border-red-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                                        >
-                                          ⊖
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    onClick={() => addRole(site.id, shift.id, 'SO_ASO')}
-                                    className="p-1 text-green-600 hover:text-green-800 border border-green-300 rounded-full w-6 h-6 flex items-center justify-center text-xs ml-2"
-                                  >
-                                    ⊕
-                                  </button>
-                                </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">SO / ASO:</span>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateShift(site.id, shift.id, 'soAsoCount', Math.max(0, (shift.soAsoCount || 0) - 1))}
+                                  className="p-1 text-red-600 hover:text-red-800 border border-red-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                >
+                                  ⊖
+                                </button>
+                                <span className="w-8 text-center font-medium text-gray-900">
+                                  {shift.soAsoCount || 0}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateShift(site.id, shift.id, 'soAsoCount', (shift.soAsoCount || 0) + 1)}
+                                  className="p-1 text-green-600 hover:text-green-800 border border-green-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                >
+                                  ⊕
+                                </button>
                               </div>
                             </div>
 
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-700 w-32 mt-2">Supervisor:</span>
-                              <div className="flex-1 ml-4">
-                                <div className="flex flex-wrap gap-2 items-center">
-                                  {shift.roles.filter(role => role.type === 'SUPERVISOR').map((role) => (
-                                    <div key={role.id} className="flex items-center gap-1">
-                                      <select
-                                        value={role.employeeId}
-                                        onChange={(e) => updateRole(site.id, shift.id, role.id, e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 w-48"
-                                      >
-                                        <option value="">Select Supervisor</option>
-                                        {getEmployeesByDesignation('Supervisor').map((emp) => (
-                                          <option key={emp._id} value={emp._id}>
-                                            {emp.employeeId} - {emp.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      {shift.roles.filter(r => r.type === 'SUPERVISOR').length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeRole(site.id, shift.id, role.id)}
-                                          className="p-1 text-red-600 hover:text-red-800 border border-red-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                                        >
-                                          ⊖
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    onClick={() => addRole(site.id, shift.id, 'SUPERVISOR')}
-                                    className="p-1 text-green-600 hover:text-green-800 border border-green-300 rounded-full w-6 h-6 flex items-center justify-center text-xs ml-2"
-                                  >
-                                    ⊕
-                                  </button>
-                                </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">Supervisor:</span>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateShift(site.id, shift.id, 'supervisorCount', Math.max(0, (shift.supervisorCount || 0) - 1))}
+                                  className="p-1 text-red-600 hover:text-red-800 border border-red-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                >
+                                  ⊖
+                                </button>
+                                <span className="w-8 text-center font-medium text-gray-900">
+                                  {shift.supervisorCount || 0}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateShift(site.id, shift.id, 'supervisorCount', (shift.supervisorCount || 0) + 1)}
+                                  className="p-1 text-green-600 hover:text-green-800 border border-green-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                >
+                                  ⊕
+                                </button>
                               </div>
                             </div>
 
-                            <div className="flex items-start">
-                              <span className="text-sm font-medium text-gray-700 w-32 mt-2">Security Guard:</span>
-                              <div className="flex-1 ml-4">
-                                <div className="flex flex-wrap gap-2 items-center">
-                                  {shift.roles.filter(role => role.type === 'SECURITY_GUARD').map((role) => (
-                                    <div key={role.id} className="flex items-center gap-1">
-                                      <select
-                                        value={role.employeeId}
-                                        onChange={(e) => updateRole(site.id, shift.id, role.id, e.target.value)}
-                                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 w-48"
-                                      >
-                                        <option value="">Select Security Guard</option>
-                                        {getEmployeesByDesignation('Security Guard').map((emp) => (
-                                          <option key={emp._id} value={emp._id}>
-                                            {emp.employeeId} - {emp.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      {shift.roles.filter(r => r.type === 'SECURITY_GUARD').length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => removeRole(site.id, shift.id, role.id)}
-                                          className="p-1 text-red-600 hover:text-red-800 border border-red-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                                        >
-                                          ⊖
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-                                  <button
-                                    type="button"
-                                    onClick={() => addRole(site.id, shift.id, 'SECURITY_GUARD')}
-                                    className="p-1 text-green-600 hover:text-green-800 border border-green-300 rounded-full w-6 h-6 flex items-center justify-center text-xs ml-2"
-                                  >
-                                    ⊕
-                                  </button>
-                                </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">Security Guard:</span>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => updateShift(site.id, shift.id, 'securityGuardCount', Math.max(0, (shift.securityGuardCount || 0) - 1))}
+                                  className="p-1 text-red-600 hover:text-red-800 border border-red-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                >
+                                  ⊖
+                                </button>
+                                <span className="w-8 text-center font-medium text-gray-900">
+                                  {shift.securityGuardCount || 0}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => updateShift(site.id, shift.id, 'securityGuardCount', (shift.securityGuardCount || 0) + 1)}
+                                  className="p-1 text-green-600 hover:text-green-800 border border-green-300 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                >
+                                  ⊕
+                                </button>
                               </div>
                             </div>
                           </div>
