@@ -67,37 +67,48 @@ export default function Home() {
             </div>
 
             {/* Main Navigation Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Link href="/dashboard" className="block">
-                <div className="bg-white p-8 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
+                <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
                   <div className="bg-blue-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
                     <BarChart3 className="w-6 h-6 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Dashboard</h3>
-                  <p className="text-gray-600">View real-time analytics, reports, and system overview</p>
-                  <div className="mt-4 text-blue-600 font-medium">View Dashboard →</div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Dashboard</h3>
+                  <p className="text-gray-600 text-sm">View real-time analytics and reports</p>
+                  <div className="mt-3 text-blue-600 font-medium text-sm">View Dashboard →</div>
                 </div>
               </Link>
               
-              <Link href="/scheduling" className="block">
-                <div className="bg-white p-8 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
+              <Link href="/monthly-planner" className="block">
+                <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
                   <div className="bg-green-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
                     <Calendar className="w-6 h-6 text-green-600" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Scheduling</h3>
-                  <p className="text-gray-600">Manage guard schedules, shifts, and assignments</p>
-                  <div className="mt-4 text-green-600 font-medium">Manage Schedules →</div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Monthly Planner</h3>
+                  <p className="text-gray-600 text-sm">Plan and manage monthly shift schedules</p>
+                  <div className="mt-3 text-green-600 font-medium text-sm">Open Planner →</div>
+                </div>
+              </Link>
+              
+              <Link href="/assignments" className="block">
+                <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
+                  <div className="bg-orange-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                    <Users className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Assignments</h3>
+                  <p className="text-gray-600 text-sm">Manage staff assignments and roles</p>
+                  <div className="mt-3 text-orange-600 font-medium text-sm">View Assignments →</div>
                 </div>
               </Link>
               
               <Link href="/tracking" className="block">
-                <div className="bg-white p-8 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
+                <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
                   <div className="bg-purple-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
                     <MapPin className="w-6 h-6 text-purple-600" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Tracking</h3>
-                  <p className="text-gray-600">Track guard locations, check-ins, and patrol routes</p>
-                  <div className="mt-4 text-purple-600 font-medium">View Tracking →</div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Tracking</h3>
+                  <p className="text-gray-600 text-sm">Track guard locations and patrols</p>
+                  <div className="mt-3 text-purple-600 font-medium text-sm">View Tracking →</div>
                 </div>
               </Link>
             </div>

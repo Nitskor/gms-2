@@ -601,7 +601,7 @@ export default function Assignments() {
                                       <div className="flex-1">
                                         <div className="flex items-center space-x-2 mb-1">
                                           <span className="text-xs font-medium text-gray-900 bg-gray-100 px-2 py-1 rounded">
-                                            {assignment.assignmentId}
+                      {assignment.assignmentId}
                                           </span>
                                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)}`}>
                                             {assignment.status}
@@ -636,13 +636,13 @@ export default function Assignments() {
                                           Delete
                                         </button>
                                       </div>
-                                    </div>
+                      </div>
                                   )}
-                                </div>
+                      </div>
                               ))}
-                            </div>
+                      </div>
                           )}
-                        </div>
+                      </div>
 
                         {/* Night Shift - Right Side */}
                         <div className="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
@@ -653,14 +653,14 @@ export default function Assignments() {
                               <span className="ml-2 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">
                                 {shifts.nightShift.length} assigned
                               </span>
-                            </div>
+                      </div>
                             <button
                               onClick={() => openAddPositionModal(clientCode, siteId, 'Night Shift')}
                               className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
                             >
                               + Add Position
                             </button>
-                          </div>
+                      </div>
                           
                           {shifts.nightShift.length === 0 ? (
                             <p className="text-sm text-gray-500 italic">No night shift assignments</p>
@@ -676,7 +676,7 @@ export default function Assignments() {
                                           {assignment.assignmentId}
                                         </span>
                                         <span className={`text-xs px-2 py-1 rounded ${getDesignationBadge(assignment.designation)}`}>
-                                          {getDesignationDisplay(assignment.designation)}
+                      {getDesignationDisplay(assignment.designation)}
                                         </span>
                                       </div>
                                       
@@ -719,9 +719,9 @@ export default function Assignments() {
                                           <span className="text-xs font-medium text-gray-900 bg-gray-100 px-2 py-1 rounded">
                                             {assignment.assignmentId}
                                           </span>
-                                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)}`}>
-                                            {assignment.status}
-                                          </span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)}`}>
+                        {assignment.status}
+                      </span>
                                           <span className={`text-xs px-2 py-1 rounded ${getDesignationBadge(assignment.designation)}`}>
                                             {getDesignationDisplay(assignment.designation)}
                                           </span>
@@ -741,16 +741,16 @@ export default function Assignments() {
                                         <button
                                           onClick={() => startEditingAssignment(assignment)}
                                           className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                        >
-                                          Edit
+                      >
+                        Edit
                                         </button>
                                         <span className="text-gray-300">|</span>
-                                        <button
+                      <button
                                           onClick={() => deleteAssignment(assignment._id)}
                                           className="text-red-600 hover:text-red-800 text-xs font-medium"
-                                        >
-                                          Delete
-                                        </button>
+                      >
+                        Delete
+                      </button>
                                       </div>
                                     </div>
                                   )}
@@ -767,19 +767,19 @@ export default function Assignments() {
               </div>
             </div>
           ))}
-        </div>
-
-        {assignments.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No assignments found</p>
-            <Link
-              href="/create-client"
-              className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-              Create your first client
-            </Link>
           </div>
-        )}
+          
+          {assignments.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No assignments found</p>
+              <Link
+                href="/create-client"
+                className="mt-4 inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              >
+              Create your first client
+              </Link>
+            </div>
+          )}
 
         {/* Add Position Modal */}
         {showAddPositionModal && addPositionContext && (
@@ -798,8 +798,8 @@ export default function Assignments() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Shift: {addPositionContext.shiftId}
                   </label>
-                </div>
-                
+          </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
                   <select
@@ -812,9 +812,9 @@ export default function Assignments() {
                     <option value="SUPERVISOR">Supervisor</option>
                     <option value="SECURITY_GUARD">Security Guard</option>
                   </select>
-                </div>
-              </div>
-              
+            </div>
+          </div>
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={closeAddPositionModal}
