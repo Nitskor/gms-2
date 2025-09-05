@@ -474,7 +474,7 @@ export default function MonthlyPlanner() {
                                    ? 'bg-slate-200 text-slate-700' 
                                    : 'bg-amber-200 text-amber-700'
                                }`}>
-                                 {isExtendedShift ? '24H' : isWeeklyOff ? 'OFF' : (shiftType === 'night' ? 'N' : 'D')}
+                                 {isExtendedShift ? `${shiftType === 'night' ? 'N' : 'D'} 24H` : isWeeklyOff ? 'OFF' : (shiftType === 'night' ? 'N' : 'D')}
                                </div>
                              </div>
                            </div>

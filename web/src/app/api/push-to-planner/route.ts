@@ -48,99 +48,94 @@ interface Schedule {
   updatedAt: Date;
 }
 
-// Rotation logic implementation
+// Improved rotation logic implementation
 function applyRotationLogic(assignments: Assignment[], startDate: string, endDate: string): Schedule[] {
   const schedules: Schedule[] = [];
   const start = new Date(startDate);
   const end = new Date(endDate);
   
-  // Group assignments by employee and shift type
-  const employeeShifts = new Map();
+  // Group assignments by employee (only one assignment per employee to avoid duplicates)
+  const employeeAssignments = new Map();
   
   assignments.forEach(assignment => {
     if (!assignment.employeeId) return;
     
-    const key = `${assignment.employeeId}|${assignment.shiftId}`;
-    if (!employeeShifts.has(key)) {
-      employeeShifts.set(key, []);
+    // Only keep the first assignment for each employee to avoid duplicates
+    if (!employeeAssignments.has(assignment.employeeId)) {
+      employeeAssignments.set(assignment.employeeId, assignment);
     }
-    employeeShifts.get(key).push(assignment);
   });
   
-  // Apply rotation pattern for each employee-shift combination
-  employeeShifts.forEach((employeeAssignments, key) => {
-    const [employeeId, shiftId] = key.split('|');
-    const shiftType = getShiftType(shiftId);
-    
-    // Get the first assignment to extract base info
-    const baseAssignment = employeeAssignments[0];
-    
-    // Generate schedule for the date range
+  // Apply rotation pattern for each employee
+  employeeAssignments.forEach((assignment) => {
+    const shiftType = getShiftType(assignment.shiftId);
     const currentDate = new Date(start);
-    let dayCount = 0;
+    let weekCount = 0;
     
     while (currentDate <= end) {
       const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
       let scheduleType = 'normal';
       let isWorking = true;
+      let currentShiftType = shiftType;
       
-      if (shiftType === 'day') {
-        // Day shift rotation: Works 6 days, then 24hr shift on Saturday (6th day)
-        if (dayCount % 7 === 5) { // Saturday (6th day)
-          scheduleType = 'extended'; // 24-hour shift
-        } else if (dayCount % 7 === 6) { // Sunday
-          isWorking = false; // Day off after 24hr shift
+      // Determine current shift type based on week rotation
+      // Rotation happens after the Sunday transition, not during it
+      if (weekCount % 2 === 1 && dayOfWeek !== 0) {
+        // Every other week, rotate shift type (but not on Sunday)
+        currentShiftType = shiftType === 'day' ? 'night' : 'day';
+      }
+      
+      if (currentShiftType === 'day') {
+        // Day shift: Works Sunday-Saturday (7 days), then gets 24hr break
+        if (dayOfWeek === 6) { // Saturday
+          scheduleType = 'normal'; // Regular day shift on Saturday
+        } else if (dayOfWeek === 0 && weekCount % 2 === 1) { // Sunday after odd week
+          isWorking = false; // 24hr break (Saturday evening to Sunday evening)
         }
-      } else if (shiftType === 'night') {
-        // Night shift rotation: Works 6 days, then gets Sunday off
-        if (dayCount % 7 === 6) { // Sunday
-          isWorking = false; // Weekly off
-        } else if (dayCount % 7 === 0) { // Monday
-          // Night shift rotates to day shift on Monday
-          // This will be handled by creating a separate schedule entry
+      } else if (currentShiftType === 'night') {
+        // Night shift: Works Sunday-Saturday (7 days), then does 24hr shift
+        if (dayOfWeek === 6) { // Saturday
+          scheduleType = 'extended'; // 24hr shift (Saturday night to Sunday day)
+        } else if (dayOfWeek === 0 && weekCount % 2 === 1) { // Sunday after odd week
+          scheduleType = 'extended'; // Continue 24hr shift from Saturday night (now day shift)
         }
       }
       
       if (isWorking) {
+        // For 24hr shifts, show both day and night shift information
+        let shiftId = currentShiftType === 'day' ? 'Day Shift' : 'Night Shift';
+        if (scheduleType === 'extended') {
+          // 24hr shift: show the shift type with 24hr indicator
+          if (dayOfWeek === 6) { // Saturday - starting 24hr shift
+            shiftId = currentShiftType === 'night' ? 'Night Shift (24hr)' : 'Day Shift (24hr)';
+          } else if (dayOfWeek === 0 && weekCount % 2 === 1) { // Sunday - continuing 24hr shift
+            shiftId = 'Day Shift (24hr)'; // Always becomes day shift on Sunday
+          }
+        }
+        
         schedules.push({
-          assignmentId: baseAssignment.assignmentId,
-          employeeId: employeeId,
-          clientCode: baseAssignment.clientCode,
-          siteId: baseAssignment.siteId,
+          assignmentId: assignment.assignmentId,
+          employeeId: assignment.employeeId,
+          clientCode: assignment.clientCode,
+          siteId: assignment.siteId,
           shiftId: shiftId,
-          designation: baseAssignment.designation,
+          designation: assignment.designation,
           date: new Date(currentDate),
-          scheduleType: scheduleType, // 'normal', 'extended', 'weekly_off'
+          scheduleType: scheduleType,
           status: 'scheduled',
-          employee: baseAssignment.employee,
-          client: baseAssignment.client,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-      }
-      
-      // Handle night to day shift rotation on Monday
-      if (shiftType === 'night' && dayOfWeek === 1) { // Monday
-        const dayShiftId = shiftId.replace(/night|evening/gi, 'day');
-        schedules.push({
-          assignmentId: baseAssignment.assignmentId,
-          employeeId: employeeId,
-          clientCode: baseAssignment.clientCode,
-          siteId: baseAssignment.siteId,
-          shiftId: dayShiftId,
-          designation: baseAssignment.designation,
-          date: new Date(currentDate),
-          scheduleType: 'normal',
-          status: 'scheduled',
-          employee: baseAssignment.employee,
-          client: baseAssignment.client,
+          employee: assignment.employee,
+          client: assignment.client,
           createdAt: new Date(),
           updatedAt: new Date()
         });
       }
       
       currentDate.setDate(currentDate.getDate() + 1);
-      dayCount++;
+      
+      // Increment week count when we reach Sunday
+      if (dayOfWeek === 6) { // Saturday
+        weekCount++;
+      }
     }
   });
   
