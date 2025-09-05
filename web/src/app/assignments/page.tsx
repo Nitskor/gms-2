@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Plus, Trash2, Users, Building, Clock, User, Calendar, Filter, Search, X, Sun, Moon } from 'lucide-react';
+import { Upload, ArrowRight } from 'lucide-react';
 
 interface Assignment {
   _id: string;
@@ -65,22 +65,6 @@ export default function Assignments() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
-  const [addStaffContext, setAddStaffContext] = useState<{
-    clientCode: string;
-    siteId: string;
-    shiftId: string;
-    shiftName: string;
-  } | null>(null);
-  const [addStaffForm, setAddStaffForm] = useState<{
-    designation: string;
-    employeeId: string;
-    startDate: string;
-  }>({
-    designation: '',
-    employeeId: '',
-    startDate: ''
-  });
   const [showAddPositionModal, setShowAddPositionModal] = useState(false);
   const [addPositionContext, setAddPositionContext] = useState<{
     clientCode: string;
@@ -93,69 +77,7 @@ export default function Assignments() {
     designation: ''
   });
 
-  // Function to get staffing requirements for a client site shift
-  const getStaffingRequirements = (clientCode: string, siteId: string, shiftType: string) => {
-    const client = clients.find(c => c.clientCode === clientCode);
-    if (!client) {
-      return null;
-    }
 
-    // Search by site name instead of siteId
-    const site = client.postSites.find(s => s.name === siteId);
-    if (!site) {
-      return null;
-    }
-    
-    // Find shift by type (day/night) instead of hardcoded ID
-    const shift = site.shifts.find(sh => 
-      sh.shiftName.toLowerCase().includes(shiftType.toLowerCase())
-    );
-    
-    if (!shift) {
-      return null;
-    }
-    
-    return shift.requiredStaff || {
-      SO_ASO: 0,
-      SUPERVISOR: 0,
-      SECURITY_GUARD: 0
-    };
-  };
-
-  // Function to get current staffing for a shift
-  const getCurrentStaffing = (assignments: Assignment[]) => {
-    const current = {
-      SO_ASO: 0,
-      SUPERVISOR: 0,
-      SECURITY_GUARD: 0
-    };
-
-    assignments.forEach(assignment => {
-      if (assignment.status === 'active') {
-        current[assignment.designation as keyof typeof current]++;
-      }
-    });
-
-    return current;
-  };
-
-  // Function to get staffing gap analysis
-  const getStaffingGap = (clientCode: string, siteId: string, shiftId: string, assignments: Assignment[]) => {
-    const requirements = getStaffingRequirements(clientCode, siteId, shiftId);
-    if (!requirements) return null;
-
-    const current = getCurrentStaffing(assignments);
-    
-    return {
-      SO_ASO: { required: requirements.SO_ASO, current: current.SO_ASO, gap: current.SO_ASO - requirements.SO_ASO },
-      SUPERVISOR: { required: requirements.SUPERVISOR, current: current.SUPERVISOR, gap: current.SUPERVISOR - requirements.SUPERVISOR },
-      SECURITY_GUARD: { required: requirements.SECURITY_GUARD, current: current.SECURITY_GUARD, gap: current.SECURITY_GUARD - requirements.SECURITY_GUARD }
-    };
-  };
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterClient, setFilterClient] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped');
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     employeeId: string;
@@ -169,13 +91,20 @@ export default function Assignments() {
     status: 'active'
   });
 
-  useEffect(() => {
-    fetchAssignments();
-    fetchEmployees();
-    fetchClients();
-  }, []);
+  // Push to Planner state
+  const [showPushModal, setShowPushModal] = useState(false);
+  const [pushForm, setPushForm] = useState<{
+    startDate: string;
+    endDate: string;
+    applyRotation: boolean;
+  }>({
+    startDate: '',
+    endDate: '',
+    applyRotation: true
+  });
+  const [pushLoading, setPushLoading] = useState(false);
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       const response = await fetch('/api/assignments');
       const data = await response.json();
@@ -188,7 +117,13 @@ export default function Assignments() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAssignments();
+    fetchEmployees();
+    fetchClients();
+  }, [fetchAssignments]);
 
   const autoFixPendingAssignments = async (assignmentsData: Assignment[]) => {
     const assignmentsToFix = assignmentsData.filter(
@@ -270,17 +205,6 @@ export default function Assignments() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch {
-      return 'Invalid Date';
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -451,6 +375,66 @@ export default function Assignments() {
     }
   };
 
+  // Push to Planner functions
+  const openPushModal = () => {
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    
+    setPushForm({
+      startDate: today.toISOString().split('T')[0],
+      endDate: nextMonth.toISOString().split('T')[0],
+      applyRotation: true
+    });
+    setShowPushModal(true);
+  };
+
+  const closePushModal = () => {
+    setShowPushModal(false);
+    setPushForm({
+      startDate: '',
+      endDate: '',
+      applyRotation: true
+    });
+  };
+
+  const pushToPlanner = async () => {
+    if (!pushForm.startDate || !pushForm.endDate) {
+      alert('Please select start and end dates');
+      return;
+    }
+
+    setPushLoading(true);
+    try {
+      const response = await fetch('/api/push-to-planner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assignments: assignments.filter(a => a.status === 'active'),
+          startDate: pushForm.startDate,
+          endDate: pushForm.endDate,
+          applyRotation: pushForm.applyRotation
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Successfully pushed ${result.schedulesCreated} schedules to planner!`);
+        closePushModal();
+      } else {
+        const result = await response.json();
+        alert(`Error: ${result.message || 'Failed to push to planner'}`);
+      }
+    } catch (error) {
+      console.error('Error pushing to planner:', error);
+      alert('Failed to push to planner');
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -464,12 +448,21 @@ export default function Assignments() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Assignments</h1>
-          <Link
-            href="/create-client"
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Create New Assignment
-          </Link>
+          <div className="flex space-x-3">
+            <button
+              onClick={openPushModal}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Push to Planner
+            </button>
+            <Link
+              href="/create-client"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Create New Assignment
+            </Link>
+          </div>
         </div>
 
         {/* Group assignments by client, then by site, then by shift */}
@@ -827,6 +820,89 @@ export default function Assignments() {
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   Add Position
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Push to Planner Modal */}
+        {showPushModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <ArrowRight className="mr-2 h-5 w-5 text-green-600" />
+                Push to Monthly Planner
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={pushForm.startDate}
+                    onChange={(e) => setPushForm({...pushForm, startDate: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={pushForm.endDate}
+                    onChange={(e) => setPushForm({...pushForm, endDate: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="applyRotation"
+                    checked={pushForm.applyRotation}
+                    onChange={(e) => setPushForm({...pushForm, applyRotation: e.target.checked})}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="applyRotation" className="ml-2 block text-sm text-gray-700">
+                    Apply rotation pattern (Day shift: 24hrs on 6th day, Night shift: off on Sunday)
+                  </label>
+                </div>
+
+                <div className="bg-blue-50 p-3 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <strong>Active assignments:</strong> {assignments.filter(a => a.status === 'active').length}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Only active assignments will be pushed to the planner
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={closePushModal}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                  disabled={pushLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={pushToPlanner}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+                  disabled={pushLoading}
+                >
+                  {pushLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Pushing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Push to Planner
+                    </>
+                  )}
                 </button>
               </div>
             </div>

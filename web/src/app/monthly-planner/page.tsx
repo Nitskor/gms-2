@@ -52,7 +52,8 @@ interface Client {
 }
 
 export default function MonthlyPlanner() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Set to September 2025 to match the data
+  const [currentDate, setCurrentDate] = useState(new Date('2025-09-05'));
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -96,7 +97,7 @@ export default function MonthlyPlanner() {
   const fetchData = async () => {
     try {
       const [assignmentsRes, employeesRes, clientsRes] = await Promise.all([
-        fetch('/api/assignments'),
+        fetch('/api/push-to-planner'),
         fetch('/api/employees'),
         fetch('/api/clients')
       ]);
@@ -137,16 +138,18 @@ export default function MonthlyPlanner() {
   // Get assignments for a specific date, grouped by shift type and hierarchy
   const getAssignmentsForDate = (date: Date) => {
     const filteredAssignments = getFilteredAssignments();
+    const currentDateStr = date.toISOString().split('T')[0]; // "2025-09-05"
+    
     const dayAssignments = filteredAssignments.filter(assignment => {
-      const startDate = new Date(assignment.startDate);
-      const endDate = assignment.endDate ? new Date(assignment.endDate) : null;
+      // Convert to date strings for comparison to avoid timezone issues
+      const assignmentDate = assignment.startDate; // Already a string like "2025-09-05"
       
-      return startDate <= date && (!endDate || endDate >= date);
+      return assignmentDate === currentDateStr;
     });
 
     // Group by shift type: day shifts first, then night shifts
-    const dayShifts = dayAssignments.filter(assignment => getShiftType(assignment.shiftId) === 'day');
-    const nightShifts = dayAssignments.filter(assignment => getShiftType(assignment.shiftId) === 'night');
+    const dayShifts = dayAssignments.filter(assignment => getShiftType(assignment) === 'day');
+    const nightShifts = dayAssignments.filter(assignment => getShiftType(assignment) === 'night');
     
     // Sort each shift group by hierarchy: SO/ASO → Supervisor → Security Guard
     const sortByHierarchy = (assignments: any[]) => {
@@ -164,12 +167,23 @@ export default function MonthlyPlanner() {
     return [...sortedDayShifts, ...sortedNightShifts];
   };
 
-  // Get shift type (day/night) from shift name
-  const getShiftType = (shiftName: string) => {
-    const lowerShift = shiftName.toLowerCase();
-    if (lowerShift.includes('night') || lowerShift.includes('evening')) {
+  // Get shift type (day/night) from shift name or assignment ID
+  const getShiftType = (assignment: any) => {
+    // Check assignmentId first (contains "NIGHT" or "DAY")
+    const assignmentId = assignment.assignmentId?.toLowerCase() || '';
+    if (assignmentId.includes('night') || assignmentId.includes('evening')) {
       return 'night';
     }
+    if (assignmentId.includes('day')) {
+      return 'day';
+    }
+    
+    // Fallback to shiftId
+    const shiftId = assignment.shiftId?.toLowerCase() || '';
+    if (shiftId.includes('night') || shiftId.includes('evening')) {
+      return 'night';
+    }
+    
     return 'day';
   };
 
@@ -238,6 +252,14 @@ export default function MonthlyPlanner() {
               <p className="mt-2 text-gray-600">
                 Plan and manage staff schedules for the week
               </p>
+              <div className="mt-2 flex items-center">
+                <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  📅 Monthly Schedules Active
+                </div>
+                <span className="ml-2 text-xs text-gray-500">
+                  Showing rotated schedules with 24hr shifts and weekly offs
+                </span>
+              </div>
             </div>
             
             {/* Week Navigation */}
@@ -418,9 +440,9 @@ export default function MonthlyPlanner() {
                    {/* Assignments - Scrollable */}
                    <div className="h-[352px] overflow-y-auto p-3 space-y-2">
                      {dayAssignments.map((assignment) => {
-                       const shiftType = getShiftType(assignment.shiftId);
-                       const isExtendedShift = false; // Will be implemented later
-                       const isWeeklyOff = false; // Will be implemented later
+                       const shiftType = getShiftType(assignment);
+                       const isExtendedShift = (assignment as any).scheduleType === 'extended';
+                       const isWeeklyOff = (assignment as any).scheduleType === 'weekly_off';
                        
                        return (
                          <div
@@ -444,11 +466,15 @@ export default function MonthlyPlanner() {
                                  {getDesignationAbbreviation(assignment.designation)}
                                </div>
                                <div className={`text-xs px-1 py-0.5 rounded ${
-                                 shiftType === 'night' 
+                                 isExtendedShift
+                                   ? 'bg-red-200 text-red-700'
+                                   : isWeeklyOff
+                                   ? 'bg-green-200 text-green-700'
+                                   : shiftType === 'night' 
                                    ? 'bg-slate-200 text-slate-700' 
                                    : 'bg-amber-200 text-amber-700'
                                }`}>
-                                 {shiftType === 'night' ? 'N' : 'D'}
+                                 {isExtendedShift ? '24H' : isWeeklyOff ? 'OFF' : (shiftType === 'night' ? 'N' : 'D')}
                                </div>
                              </div>
                            </div>
@@ -458,7 +484,7 @@ export default function MonthlyPlanner() {
                      
                      {dayAssignments.length === 0 && (
                        <div className="text-xs text-gray-400 text-center py-4">
-                         No assignments
+                         {assignments.length === 0 ? 'No monthly schedules found. Use "Push to Planner" to create schedules.' : 'No assignments for this date'}
                        </div>
                      )}
                    </div>
