@@ -147,16 +147,20 @@ export default function MonthlyPlanner() {
       return assignmentDate === currentDateStr;
     });
 
-    // Group by shift type: day shifts first, then night shifts
-    const dayShifts = dayAssignments.filter(assignment => getShiftType(assignment) === 'day');
-    const nightShifts = dayAssignments.filter(assignment => getShiftType(assignment) === 'night');
+    // Separate SO/ASO from other staff
+    const soAsoAssignments = dayAssignments.filter(assignment => assignment.designation === 'SO_ASO');
+    const otherStaffAssignments = dayAssignments.filter(assignment => assignment.designation !== 'SO_ASO');
     
-    // Sort each shift group by hierarchy: SO/ASO → Supervisor → Security Guard
+    // Group other staff by shift type: Day shifts first, then Night shifts
+    const dayShifts = otherStaffAssignments.filter(assignment => getShiftType(assignment) === 'day');
+    const nightShifts = otherStaffAssignments.filter(assignment => getShiftType(assignment) === 'night');
+    
+    // Sort each shift group by hierarchy: Supervisor → Security Guard
     const sortByHierarchy = (assignments: any[]) => {
-      const hierarchy = { 'SO_ASO': 1, 'SUPERVISOR': 2, 'SECURITY_GUARD': 3 };
+      const hierarchy = { 'SUPERVISOR': 1, 'SECURITY_GUARD': 2 };
       return assignments.sort((a, b) => {
-        const aOrder = hierarchy[a.designation as keyof typeof hierarchy] || 4;
-        const bOrder = hierarchy[b.designation as keyof typeof hierarchy] || 4;
+        const aOrder = hierarchy[a.designation as keyof typeof hierarchy] || 3;
+        const bOrder = hierarchy[b.designation as keyof typeof hierarchy] || 3;
         return aOrder - bOrder;
       });
     };
@@ -164,7 +168,11 @@ export default function MonthlyPlanner() {
     const sortedDayShifts = sortByHierarchy(dayShifts);
     const sortedNightShifts = sortByHierarchy(nightShifts);
     
-    return [...sortedDayShifts, ...sortedNightShifts];
+    return {
+      soAso: soAsoAssignments[0] || null, // Only one SO/ASO per day
+      dayShifts: sortedDayShifts,
+      nightShifts: sortedNightShifts
+    };
   };
 
   // Get shift type (day/night) from shift name or assignment ID
@@ -420,7 +428,7 @@ export default function MonthlyPlanner() {
             {calendarDays.map((day, index) => {
               const isCurrentMonth = day.getMonth() === currentDate.getMonth();
               const isToday = day.toDateString() === new Date().toDateString();
-              const dayAssignments = getAssignmentsForDate(day);
+              const { soAso, dayShifts, nightShifts } = getAssignmentsForDate(day);
               
               return (
                                                   <div
@@ -437,56 +445,121 @@ export default function MonthlyPlanner() {
                      <div className="text-xs text-gray-500">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
                    </div>
 
-                   {/* Assignments - Scrollable */}
-                   <div className="h-[352px] overflow-y-auto p-3 space-y-2">
-                     {dayAssignments.map((assignment) => {
-                       const shiftType = getShiftType(assignment);
-                       const isExtendedShift = (assignment as any).scheduleType === 'extended';
-                       const isWeeklyOff = (assignment as any).scheduleType === 'weekly_off';
-                       
+                   {/* Daily Card Structure */}
+                   <div className="h-[352px] overflow-y-auto p-3">
+                     {(() => {
                        return (
-                         <div
-                           key={assignment._id}
-                           className={`text-xs p-1 rounded border ${
-                             isExtendedShift 
-                               ? 'bg-red-50 border-red-200'
-                               : isWeeklyOff 
-                               ? 'bg-green-50 border-green-200'
-                               : shiftType === 'night'
-                               ? 'bg-slate-50 border-slate-300'
-                               : 'bg-amber-50 border-amber-200'
-                           }`}
-                         >
-                           <div className="flex items-center justify-between">
-                             <div className="font-medium truncate text-xs text-gray-900 flex-1">
-                               {assignment.employee?.name || 'Unassigned'}
-                             </div>
-                             <div className="flex items-center space-x-1 ml-1">
-                               <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
-                                 {getDesignationAbbreviation(assignment.designation)}
-                               </div>
-                               <div className={`text-xs px-1 py-0.5 rounded ${
-                                 isExtendedShift
-                                   ? 'bg-red-200 text-red-700'
-                                   : isWeeklyOff
-                                   ? 'bg-green-200 text-green-700'
-                                   : shiftType === 'night' 
-                                   ? 'bg-slate-200 text-slate-700' 
-                                   : 'bg-amber-200 text-amber-700'
-                               }`}>
-                                 {isExtendedShift ? `${shiftType === 'night' ? 'N' : 'D'} 24H` : isWeeklyOff ? 'OFF' : (shiftType === 'night' ? 'N' : 'D')}
+                         <div className="space-y-2">
+                           {/* SO/ASO Header Card */}
+                           {soAso && (
+                             <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-2 mb-3">
+                               <div className="font-semibold text-sm text-purple-800">
+                                 {soAso.employee?.name || 'Unassigned'} (SO/ASO)
                                </div>
                              </div>
-                           </div>
+                           )}
+                           
+                           {/* Day Shifts */}
+                           {dayShifts.length > 0 && (
+                             <div className="mb-2">
+                               <div className="text-xs font-medium text-gray-600 mb-1">Day Shift</div>
+                               <div className="space-y-1">
+                                 {dayShifts.map((assignment) => {
+                                   const isExtendedShift = (assignment as any).scheduleType === 'extended';
+                                   const isWeeklyOff = (assignment as any).scheduleType === 'weekly_off';
+                                   
+                                   return (
+                                     <div
+                                       key={assignment._id}
+                                       className={`text-xs p-1 rounded border ${
+                                         isExtendedShift 
+                                           ? 'bg-red-50 border-red-200'
+                                           : isWeeklyOff 
+                                           ? 'bg-green-50 border-green-200'
+                                           : 'bg-amber-50 border-amber-200'
+                                       }`}
+                                     >
+                                       <div className="flex items-center justify-between">
+                                         <div className="font-medium truncate text-xs text-gray-900 flex-1">
+                                           {assignment.employee?.name || 'Unassigned'}
+                                         </div>
+                                         <div className="flex items-center space-x-1 ml-1">
+                                           <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
+                                             {getDesignationAbbreviation(assignment.designation)}
+                                           </div>
+                                           <div className={`text-xs px-1 py-0.5 rounded ${
+                                             isExtendedShift
+                                               ? 'bg-red-200 text-red-700'
+                                               : isWeeklyOff
+                                               ? 'bg-green-200 text-green-700'
+                                               : 'bg-amber-200 text-amber-700'
+                                           }`}>
+                                             {isExtendedShift ? 'D 24H' : isWeeklyOff ? 'OFF' : 'D'}
+                                           </div>
+                                         </div>
+                                       </div>
+                                     </div>
+                                   );
+                                 })}
+                               </div>
+                             </div>
+                           )}
+                           
+                           {/* Night Shifts */}
+                           {nightShifts.length > 0 && (
+                             <div>
+                               <div className="text-xs font-medium text-gray-600 mb-1">Night Shift</div>
+                               <div className="space-y-1">
+                                 {nightShifts.map((assignment) => {
+                                   const isExtendedShift = (assignment as any).scheduleType === 'extended';
+                                   const isWeeklyOff = (assignment as any).scheduleType === 'weekly_off';
+                                   
+                                   return (
+                                     <div
+                                       key={assignment._id}
+                                       className={`text-xs p-1 rounded border ${
+                                         isExtendedShift 
+                                           ? 'bg-red-50 border-red-200'
+                                           : isWeeklyOff 
+                                           ? 'bg-green-50 border-green-200'
+                                           : 'bg-slate-50 border-slate-300'
+                                       }`}
+                                     >
+                                       <div className="flex items-center justify-between">
+                                         <div className="font-medium truncate text-xs text-gray-900 flex-1">
+                                           {assignment.employee?.name || 'Unassigned'}
+                                         </div>
+                                         <div className="flex items-center space-x-1 ml-1">
+                                           <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
+                                             {getDesignationAbbreviation(assignment.designation)}
+                                           </div>
+                                           <div className={`text-xs px-1 py-0.5 rounded ${
+                                             isExtendedShift
+                                               ? 'bg-red-200 text-red-700'
+                                               : isWeeklyOff
+                                               ? 'bg-green-200 text-green-700'
+                                               : 'bg-slate-200 text-slate-700'
+                                           }`}>
+                                             {isExtendedShift ? 'N 24H' : isWeeklyOff ? 'OFF' : 'N'}
+                                           </div>
+                                         </div>
+                                       </div>
+                                     </div>
+                                   );
+                                 })}
+                               </div>
+                             </div>
+                           )}
+                           
+                           {/* No assignments message */}
+                           {!soAso && dayShifts.length === 0 && nightShifts.length === 0 && (
+                             <div className="text-center text-gray-500 text-sm py-8">
+                               No assignments for this date
+                             </div>
+                           )}
                          </div>
                        );
-                     })}
-                     
-                     {dayAssignments.length === 0 && (
-                       <div className="text-xs text-gray-400 text-center py-4">
-                         {assignments.length === 0 ? 'No monthly schedules found. Use "Push to Planner" to create schedules.' : 'No assignments for this date'}
-                       </div>
-                     )}
+                     })()}
                    </div>
                  </div>
               );

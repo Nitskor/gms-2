@@ -54,21 +54,16 @@ function applyRotationLogic(assignments: Assignment[], startDate: string, endDat
   const start = new Date(startDate);
   const end = new Date(endDate);
   
-  // Group assignments by employee (only one assignment per employee to avoid duplicates)
-  const employeeAssignments = new Map();
-  
+  // Process all assignments individually (don't group by employee-shift)
   assignments.forEach(assignment => {
     if (!assignment.employeeId) return;
     
-    // Only keep the first assignment for each employee to avoid duplicates
-    if (!employeeAssignments.has(assignment.employeeId)) {
-      employeeAssignments.set(assignment.employeeId, assignment);
+    // For SO/ASO, only process Day Shift assignments to avoid duplicates
+    if (assignment.designation === 'SO_ASO' && getShiftType(assignment.shiftId) !== 'day') {
+      return;
     }
-  });
-  
-  // Apply rotation pattern for each employee
-  employeeAssignments.forEach((assignment) => {
     const shiftType = getShiftType(assignment.shiftId);
+    const designation = assignment.designation;
     const currentDate = new Date(start);
     let weekCount = 0;
     
@@ -78,11 +73,18 @@ function applyRotationLogic(assignments: Assignment[], startDate: string, endDat
       let isWorking = true;
       let currentShiftType = shiftType;
       
-      // Determine current shift type based on week rotation
-      // Rotation happens after the Sunday transition, not during it
-      if (weekCount % 2 === 1 && dayOfWeek !== 0) {
-        // Every other week, rotate shift type (but not on Sunday)
-        currentShiftType = shiftType === 'day' ? 'night' : 'day';
+      // Role-based rotation logic
+      if (designation === 'SO_ASO') {
+        // SO/ASO: Always present, no rotation
+        currentShiftType = 'day'; // Default to day for display purposes
+        isWorking = true;
+      } else if (designation === 'SUPERVISOR' || designation === 'SECURITY_GUARD') {
+        // SUPERVISOR and SECURITY_GUARD: Rotate between day/night
+        // Rotation happens after the Sunday transition, not during it
+        if (weekCount % 2 === 1 && dayOfWeek !== 0) {
+          // Every other week, rotate shift type (but not on Sunday)
+          currentShiftType = shiftType === 'day' ? 'night' : 'day';
+        }
       }
       
       if (currentShiftType === 'day') {
@@ -104,7 +106,11 @@ function applyRotationLogic(assignments: Assignment[], startDate: string, endDat
       if (isWorking) {
         // For 24hr shifts, show both day and night shift information
         let shiftId = currentShiftType === 'day' ? 'Day Shift' : 'Night Shift';
-        if (scheduleType === 'extended') {
+        
+        // Special handling for SO/ASO
+        if (designation === 'SO_ASO') {
+          shiftId = 'Unit Manager'; // Special identifier for SO/ASO
+        } else if (scheduleType === 'extended') {
           // 24hr shift: show the shift type with 24hr indicator
           if (dayOfWeek === 6) { // Saturday - starting 24hr shift
             shiftId = currentShiftType === 'night' ? 'Night Shift (24hr)' : 'Day Shift (24hr)';
@@ -114,7 +120,7 @@ function applyRotationLogic(assignments: Assignment[], startDate: string, endDat
         }
         
         schedules.push({
-          assignmentId: assignment.assignmentId,
+          assignmentId: assignment.assignmentId || assignment._id,
           employeeId: assignment.employeeId,
           clientCode: assignment.clientCode,
           siteId: assignment.siteId,
