@@ -88,11 +88,13 @@ function applyRotationLogic(assignments: Assignment[], startDate: string, endDat
       }
       
       if (currentShiftType === 'day') {
-        // Day shift: Works Sunday-Saturday (7 days), then gets 24hr break
+        // Day shift: Works Sunday-Saturday (7 days), then gets 24hr break and joins night shift
         if (dayOfWeek === 6) { // Saturday
           scheduleType = 'normal'; // Regular day shift on Saturday
         } else if (dayOfWeek === 0 && weekCount % 2 === 1) { // Sunday after odd week
-          isWorking = false; // 24hr break (Saturday evening to Sunday evening)
+          // After 24hr break, join night shift on Sunday
+          currentShiftType = 'night';
+          scheduleType = 'normal'; // Regular night shift on Sunday
         }
       } else if (currentShiftType === 'night') {
         // Night shift: Works Sunday-Saturday (7 days), then does 24hr shift
@@ -117,6 +119,9 @@ function applyRotationLogic(assignments: Assignment[], startDate: string, endDat
           } else if (dayOfWeek === 0 && weekCount % 2 === 1) { // Sunday - continuing 24hr shift
             shiftId = 'Day Shift (24hr)'; // Always becomes day shift on Sunday
           }
+        } else if (dayOfWeek === 0 && weekCount % 2 === 1 && currentShiftType === 'night') {
+          // Day shift workers transitioning to night shift on Sunday after 24hr break
+          shiftId = 'Night Shift';
         }
         
         schedules.push({
