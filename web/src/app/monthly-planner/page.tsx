@@ -60,6 +60,20 @@ export default function MonthlyPlanner() {
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<string>('all');
+  
+  // Inline editing state (same pattern as assignments page)
+  const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    employeeId: string;
+    designation: string;
+    startDate: string;
+    status: string;
+  }>({
+    employeeId: '',
+    designation: '',
+    startDate: '',
+    status: 'active'
+  });
 
   // Calendar navigation
   const navigateWeek = (direction: 'prev' | 'next') => {
@@ -232,6 +246,93 @@ export default function MonthlyPlanner() {
         return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Inline editing functions (same pattern as assignments page)
+  const startEditingAssignment = (assignment: Assignment) => {
+    setEditingAssignment(assignment._id);
+    setEditForm({
+      employeeId: assignment.employeeId || '',
+      designation: assignment.designation,
+      startDate: assignment.startDate,
+      status: assignment.status
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingAssignment(null);
+    setEditForm({
+      employeeId: '',
+      designation: '',
+      startDate: '',
+      status: 'active'
+    });
+  };
+
+  const saveAssignmentChanges = async (assignmentId: string) => {
+    try {
+      // Determine status based on whether employee is assigned or not
+      let newStatus: string;
+      if (editForm.employeeId && editForm.employeeId.trim() !== '') {
+        newStatus = 'active';
+      } else {
+        newStatus = 'pending';
+      }
+      
+      const response = await fetch(`/api/assignments/${assignmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: editForm.employeeId,
+          designation: editForm.designation,
+          startDate: editForm.startDate,
+          status: newStatus
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh data
+        await fetchData();
+        setEditingAssignment(null);
+      } else {
+        console.error('Failed to update assignment');
+      }
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+    }
+  };
+
+  const deleteAssignment = async (assignmentId: string) => {
+    if (confirm('Are you sure you want to delete this assignment?')) {
+      try {
+        const response = await fetch(`/api/assignments/${assignmentId}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          await fetchData();
+        } else {
+          console.error('Failed to delete assignment');
+        }
+      } catch (error) {
+        console.error('Error deleting assignment:', error);
+      }
+    }
+  };
+
+  // Get employees by designation (same as assignments page)
+  const getEmployeesByDesignation = (designation: string) => {
+    return employees.filter(emp => emp.designation === designation && emp.status === 'active');
+  };
+
+  // Handle right-click for delete
+  const handleRightClick = (e: React.MouseEvent, assignment: Assignment) => {
+    e.preventDefault();
+    if (confirm(`Delete assignment for ${assignment.employee?.name || 'Unassigned'}?`)) {
+      deleteAssignment(assignment._id);
     }
   };
 
@@ -479,25 +580,64 @@ export default function MonthlyPlanner() {
                                            : 'bg-amber-50 border-amber-200'
                                        }`}
                                      >
-                                       <div className="flex items-center justify-between">
-                                         <div className="font-medium truncate text-xs text-gray-900 flex-1">
-                                           {assignment.employee?.name || 'Unassigned'}
-                                         </div>
-                                         <div className="flex items-center space-x-1 ml-1">
-                                           <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
-                                             {getDesignationAbbreviation(assignment.designation)}
+                                       {editingAssignment === assignment._id ? (
+                                         // Editing Mode - Compact
+                                         <div className="space-y-1">
+                                           <select
+                                             value={editForm.employeeId}
+                                             onChange={(e) => setEditForm({...editForm, employeeId: e.target.value})}
+                                             className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
+                                           >
+                                             <option value="">Select Employee</option>
+                                             {getEmployeesByDesignation(assignment.designation).map((emp) => (
+                                               <option key={emp._id} value={emp.employeeId}>
+                                                 {emp.name}
+                                               </option>
+                                             ))}
+                                           </select>
+                                           
+                                           <div className="flex justify-end space-x-1">
+                                             <button
+                                               onClick={cancelEditing}
+                                               className="px-1 py-0.5 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                                             >
+                                               ✕
+                                             </button>
+                                             <button
+                                               onClick={() => saveAssignmentChanges(assignment._id)}
+                                               className="px-1 py-0.5 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
+                                             >
+                                               ✓
+                                             </button>
                                            </div>
-                                           <div className={`text-xs px-1 py-0.5 rounded ${
-                                             isExtendedShift
-                                               ? 'bg-red-200 text-red-700'
-                                               : isWeeklyOff
-                                               ? 'bg-green-200 text-green-700'
-                                               : 'bg-amber-200 text-amber-700'
-                                           }`}>
-                                             {isExtendedShift ? 'D 24H' : isWeeklyOff ? 'OFF' : 'D'}
+                                         </div>
+                                       ) : (
+                                         // View Mode - Clean and simple
+                                         <div 
+                                           className="flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                           onClick={() => startEditingAssignment(assignment)}
+                                           onContextMenu={(e) => handleRightClick(e, assignment)}
+                                           title="Click to edit, right-click to delete"
+                                         >
+                                           <div className="font-medium truncate text-xs text-gray-900 flex-1">
+                                             {assignment.employee?.name || 'Unassigned'}
+                                           </div>
+                                           <div className="flex items-center space-x-1 ml-1">
+                                             <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
+                                               {getDesignationAbbreviation(assignment.designation)}
+                                             </div>
+                                             <div className={`text-xs px-1 py-0.5 rounded ${
+                                               isExtendedShift
+                                                 ? 'bg-red-200 text-red-700'
+                                                 : isWeeklyOff
+                                                 ? 'bg-green-200 text-green-700'
+                                                 : 'bg-amber-200 text-amber-700'
+                                             }`}>
+                                               {isExtendedShift ? 'D 24H' : isWeeklyOff ? 'OFF' : 'D'}
+                                             </div>
                                            </div>
                                          </div>
-                                       </div>
+                                       )}
                                      </div>
                                    );
                                  })}
@@ -525,25 +665,64 @@ export default function MonthlyPlanner() {
                                            : 'bg-slate-50 border-slate-300'
                                        }`}
                                      >
-                                       <div className="flex items-center justify-between">
-                                         <div className="font-medium truncate text-xs text-gray-900 flex-1">
-                                           {assignment.employee?.name || 'Unassigned'}
-                                         </div>
-                                         <div className="flex items-center space-x-1 ml-1">
-                                           <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
-                                             {getDesignationAbbreviation(assignment.designation)}
+                                       {editingAssignment === assignment._id ? (
+                                         // Editing Mode - Compact
+                                         <div className="space-y-1">
+                                           <select
+                                             value={editForm.employeeId}
+                                             onChange={(e) => setEditForm({...editForm, employeeId: e.target.value})}
+                                             className="w-full px-1 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
+                                           >
+                                             <option value="">Select Employee</option>
+                                             {getEmployeesByDesignation(assignment.designation).map((emp) => (
+                                               <option key={emp._id} value={emp.employeeId}>
+                                                 {emp.name}
+                                               </option>
+                                             ))}
+                                           </select>
+                                           
+                                           <div className="flex justify-end space-x-1">
+                                             <button
+                                               onClick={cancelEditing}
+                                               className="px-1 py-0.5 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+                                             >
+                                               ✕
+                                             </button>
+                                             <button
+                                               onClick={() => saveAssignmentChanges(assignment._id)}
+                                               className="px-1 py-0.5 text-xs text-white bg-blue-600 rounded hover:bg-blue-700"
+                                             >
+                                               ✓
+                                             </button>
                                            </div>
-                                           <div className={`text-xs px-1 py-0.5 rounded ${
-                                             isExtendedShift
-                                               ? 'bg-red-200 text-red-700'
-                                               : isWeeklyOff
-                                               ? 'bg-green-200 text-green-700'
-                                               : 'bg-slate-200 text-slate-700'
-                                           }`}>
-                                             {isExtendedShift ? 'N 24H' : isWeeklyOff ? 'OFF' : 'N'}
+                                         </div>
+                                       ) : (
+                                         // View Mode - Clean and simple
+                                         <div 
+                                           className="flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition-colors"
+                                           onClick={() => startEditingAssignment(assignment)}
+                                           onContextMenu={(e) => handleRightClick(e, assignment)}
+                                           title="Click to edit, right-click to delete"
+                                         >
+                                           <div className="font-medium truncate text-xs text-gray-900 flex-1">
+                                             {assignment.employee?.name || 'Unassigned'}
+                                           </div>
+                                           <div className="flex items-center space-x-1 ml-1">
+                                             <div className={`text-xs px-1 py-0.5 rounded ${getDesignationColor(assignment.designation)}`}>
+                                               {getDesignationAbbreviation(assignment.designation)}
+                                             </div>
+                                             <div className={`text-xs px-1 py-0.5 rounded ${
+                                               isExtendedShift
+                                                 ? 'bg-red-200 text-red-700'
+                                                 : isWeeklyOff
+                                                 ? 'bg-green-200 text-green-700'
+                                                 : 'bg-slate-200 text-slate-700'
+                                             }`}>
+                                               {isExtendedShift ? 'N 24H' : isWeeklyOff ? 'OFF' : 'N'}
+                                             </div>
                                            </div>
                                          </div>
-                                       </div>
+                                       )}
                                      </div>
                                    );
                                  })}
